@@ -5,6 +5,8 @@
 # Apache 2.0  (http://www.apache.org/licenses/LICENSE-2.0)
 
 import warnings
+import sys
+sys.path.append("..")
 
 from ibug.face_alignment import FANPredictor
 from ibug.face_detection import RetinaFacePredictor
