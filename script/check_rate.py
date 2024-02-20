@@ -43,6 +43,8 @@ def process_media_files(media_directory, output_file):
 
     for media_file in tqdm(media_files):
         video_frame_rate, audio_sample_rate = get_media_info(media_file)
+        print('video_frame_rate: ', video_frame_rate)
+        print('audio_sample_rate: ', audio_sample_rate)
         if video_frame_rate != 25 or audio_sample_rate != 16000:
             non_standard_media.append((media_file, video_frame_rate, audio_sample_rate))
 
@@ -81,14 +83,26 @@ def get_files_from_folders(csv_file):
 
     return files_in_folders
 
+def find_mp4_files(directory):
+    mp4_files = []
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if file.endswith(".mp4"):
+                mp4_files.append(os.path.join(root, file))
+    return mp4_files
+
 # Example usage
-# csv_file = '/ssd1/DF/FakeAVCeleb_v1.2/meta_data.csv'  # Replace with your CSV file path
+# csv_file = '/work/lixiaolou/program/auto_avsr/data/LAV-DF/filenames.csv'  # Replace with your CSV file path
 # all_files = get_files_from_folders(csv_file)
 
 output_file = 'output.txt'  # Replace with your desired output file path
-with open('/work/lixiaolou/program/auto_avsr/script/success.txt', 'r') as f:
-    success_files = f.read().split('\n')
-    
-success_files = [x for x in success_files if x.endswith('.mp4')]
+# input_filefolder = '/ssd1/data/standard/DFDC'
 
-process_media_files(success_files, output_file)
+with open('/work/lixiaolou/program/auto_avsr/data/LAV-DF/filenames.csv', 'r') as f:
+    all_files = f.read().split('\n')
+    
+# success_files = [x for x in success_files if x.endswith('.mp4')]
+
+# check_file = find_mp4_files(input_filefolder)
+
+process_media_files(all_files, output_file)

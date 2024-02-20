@@ -13,7 +13,37 @@ logging.basicConfig(level=logging.INFO)
 
 dir_lock = Lock()
 THREAD_NUM = 20
+dic_name = 'DFDC'
 
+input_path = f'/ssd1/DF/{dic_name}'
+output_base_dir = f'/ssd1/data/standard/{dic_name}'
+
+
+# 定义处理文件的函数
+def process_file(input_path):
+    relative_path = input_path.split(f"/{dic_name}/")[1]
+    output_path = os.path.join(output_base_dir, relative_path)
+    output_dir = os.path.dirname(output_path)
+    with dir_lock:
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+    if input_path.endswith(".txt"):
+        # 如果是文本文件，直接复制
+        try:
+            shutil.copy2(input_path, output_path)
+            return output_path, None
+        except IOError as e:
+            return input_path, str(e)
+    else:
+        # 调用ffmpeg处理视频
+        cmd = f"ffmpeg -y -i \"{input_path}\" -r 25 -ar 16000 \"{output_path}\""
+        try:
+            subprocess.run(cmd, shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+            return output_path, None
+        except subprocess.CalledProcessError as e:
+            print(str(e.stderr.decode()))
+            return input_path, str(e.stderr.decode())
 
 def get_files_from_folders(csv_file):
     """
@@ -45,46 +75,30 @@ def get_files_from_folders(csv_file):
     return files_in_folders
 
 # Example usage
-csv_file = '/ssd1/DF/FakeAVCeleb_v1.2/meta_data.csv'  # Replace with your CSV file path
-video_paths = get_files_from_folders(csv_file)
+# csv_file = '/ssd1/DF/FakeAVCeleb_v1.2/meta_data.csv'  # Replace with your CSV file path
+
+def find_mp4_files(directory):
+    mp4_files = []
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if file.endswith(".mp4"):
+                mp4_files.append(os.path.join(root, file))
+    return mp4_files
+
+# video_paths = get_files_from_folders(csv_file)
+
+video_paths = find_mp4_files(input_path)
 # random.shuffle(video_paths)
 # video_paths = video_paths[:2000]
 
 
 # 创建输出目录
-output_base_dir = "/ssd1/data/standard/FakeAVCeleb"
+
 if not os.path.exists(output_base_dir):
     os.makedirs(output_base_dir)
 
-failed_files_name = "failed_files.txt"
-
-# 定义处理文件的函数
-def process_file(input_path):
-    relative_path = input_path.split("/video/")[1]
-    output_path = os.path.join(output_base_dir, relative_path)
-    output_dir = os.path.dirname(output_path)
-    with dir_lock:
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-
-    if input_path.endswith(".txt"):
-        # 如果是文本文件，直接复制
-        try:
-            shutil.copy2(input_path, output_path)
-            return output_path, None
-        except IOError as e:
-            return input_path, str(e)
-    else:
-        # 调用ffmpeg处理视频
-        cmd = f"ffmpeg -y -i \"{input_path}\" -r 25 -ar 16000 \"{output_path}\""
-        try:
-            subprocess.run(cmd, shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-            return output_path, None
-        except subprocess.CalledProcessError as e:
-            print(str(e.stderr.decode()))
-            return input_path, str(e.stderr.decode())
-        
-
+failed_files_name = f"failed_{dic_name}.txt"
+success_files_name = f"success_{dic_name}.txt"
 
 # 使用线程池处理文件
 with ProcessPoolExecutor(max_workers=THREAD_NUM) as executor:
@@ -98,34 +112,11 @@ with ProcessPoolExecutor(max_workers=THREAD_NUM) as executor:
                     with open(failed_files_name, "a") as f:
                         f.write(f"{input_path} : {error}\n")
                 else:
-                    with open('success.txt', "a") as f:
+                    with open(success_files_name, "a") as f:
                         f.write(f"{input_path}\n")
             except Exception as e:
                 with open(failed_files_name, "a") as f:
                         f.write(f"{path} : {e}\n")
             pbar.update(1)
-
-
-# with ProcessPoolExecutor(max_workers=THREAD_NUM) as executor:
-#     futures = [executor.submit(process_file, path) for path in video_paths]
-#     with tqdm(total=len(video_paths)) as pbar:
-#         for future in as_completed(futures):
-#             input_path, error = future.result()
-#             pbar.update(1)
-#             if error:
-#                 with open(failed_files_name, "a") as f:
-#                     f.write(f"{input_path} : {error}\n")
-#             else:
-#                 with open('success.txt', "a") as f:
-#                     f.write(f"{input_path}\n")
-
-# 在循环外一次性写入文件
-# with open(failed_files_name, "a") as f:
-#     for path in failed_paths:
-#         f.write(path + "\n")
-
-# with open('success.txt', "a") as f:
-#     for path in success_paths:
-#         f.write(path + "\n")
 
 print("处理完成。")

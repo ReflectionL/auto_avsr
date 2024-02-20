@@ -5,14 +5,14 @@ def generate_wav(input_directory, output_directory):
     import logging
     
     logger = logging.getLogger()
-    file_handler = logging.FileHandler('generate_wav.log')
+    file_handler = logging.FileHandler(f'generate_wav_{dic_name}.log')
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
     logger.setLevel(logging.INFO)
     
     logger1 = logging.getLogger('error')
-    file_handler1 = logging.FileHandler('generate_wav_error.log')
+    file_handler1 = logging.FileHandler(f'generate_wav_error_{dic_name}.log')
     file_handler1.setFormatter(formatter)
     logger1.addHandler(file_handler1)
     logger1.setLevel(logging.ERROR)
@@ -20,9 +20,6 @@ def generate_wav(input_directory, output_directory):
     def convert_mp4_to_wav(mp4_path, wav_path):
         """使用ffmpeg将MP4文件转换为WAV格式"""
         try:
-            # template = 'ffmpeg -hide_banner -loglevel panic -threads 1 -y -i {} -async 1 -ac 1 -vn -acodec pcm_s16le -ar 16000 {}'
-            # command = ["ffmpeg", "-i", mp4_path, "-ab", "160k", "-ac", "2", "-ar", "44100", "-vn", wav_path]
-            # command = template.format(mp4_path, wav_path)
             command = [
                 "ffmpeg",
                 "-hide_banner",
@@ -59,7 +56,8 @@ def generate_wav(input_directory, output_directory):
 
 
     process_directory(input_directory, output_directory)
-    
-input_directory = '/ssd1/data/standard/FakeAVCeleb'
-output_directory = '/ssd1/data/processed/FakeAVCeleb/audio'
+
+dic_name = 'LAV-DF'
+input_directory = f'/ssd1/data/standard/{dic_name}'
+output_directory = f'/ssd1/data/processed/{dic_name}/audio'
 generate_wav(input_directory, output_directory)

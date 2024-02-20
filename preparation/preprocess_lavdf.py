@@ -4,6 +4,9 @@ import os
 import pickle
 import shutil
 import warnings
+import csv
+import logging
+import json
 
 import ffmpeg
 import multiprocessing
@@ -14,7 +17,7 @@ from utils import save_vid_aud, save2vid
 
 warnings.filterwarnings("ignore")
 
-parser = argparse.ArgumentParser(description="FakeAVCeleb Preprocessing")
+parser = argparse.ArgumentParser(description="LAV-DF Preprocessing")
 parser.add_argument(
     "--data-lst",
     type=str,
@@ -72,8 +75,28 @@ lock = Lock()
 num_processes = args.groups
 file_chunks = [filenames[i::num_processes] for i in range(num_processes)]
 
-def process_files(file_list, progress_counter, lock, gpu_id):
+def read_csv(listcsv):
+    data_list = []
+    with open(listcsv, 'r') as fp:
+        csv_reader = csv.reader(fp)
+        next(csv_reader, None)
+    
+        for row in csv_reader:
+            data_list.append(row)
+        
+    return data_list
+
+
+
+def read_json(json_file):
+    with open(json_file, 'r') as file:
+        data_list = json.load(file)
+    return data_list
+
+
+def process_files(file_list, progress_counter, lock, gpu_id, data_list):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
+    logging.basicConfig(level=logging.WARNING)
     
     # Load data
     vid_dataloader = AVSRDataLoader(
@@ -91,12 +114,29 @@ def process_files(file_list, progress_counter, lock, gpu_id):
             continue
         
         # Process Segments
+        logging.info(f"Processed {vid_filename}")
         for i, start_idx in enumerate(range(0, len(video_data), seg_vid_len)):
-            relative_path = vid_filename.split("/standard/FakeAVCeleb/")[1]
-            if relative_path.split('/')[0] == 'RealVideo-RealAudio':
-                label = 1
-            else:
-                label = 0
+            relative_path = vid_filename.split("/LAV-DF/")[1]
+            logging.info(relative_path)    
+            for x in data_list:
+                if x['file'] == vid_filename:
+                    if x['n_fakes'] == 0:
+                        label = 1
+                    elif not x['n_fakes'] == 0:
+                        label = 0
+                        
+                    if x['modify_audio'] == True:
+                        audio_label = 0
+                    elif x['modify_audio'] == False:
+                        audio_label = 1
+                        
+                    if x['modify_video'] == True:
+                        video_label = 0
+                    elif x['modify_video'] == False:
+                        video_label = 1  
+                    
+                    break
+            # label = next((x[1] for x in data_list if x[0] == relative_path.split('/')[1]), None)
             dst_vid_filename = os.path.join(args.root_dir, 'video', relative_path)
             trim_vid_data = video_data
             
@@ -106,16 +146,16 @@ def process_files(file_list, progress_counter, lock, gpu_id):
             
             save2vid(dst_vid_filename, trim_vid_data, 25)
             with open(args.label, 'a') as f:
-                f.write(f"{dst_vid_filename}, {video_length}, {label}\n")
+                f.write(f"{dst_vid_filename},{video_length},{label},{audio_label},{video_label}\n")
         
         with lock:
             progress_counter.value += 1
    
             
-
+data_list = read_json('/work/lixiaolou/program/auto_avsr/data/LAV-DF/test_part.json')
 processes = []
 for i, file_chunk in enumerate(file_chunks):
-    p = multiprocessing.Process(target=process_files, args=(file_chunk, progress_counter, lock, 5 - (i % 6)))
+    p = multiprocessing.Process(target=process_files, args=(file_chunk, progress_counter, lock, 5 - (i % 6), data_list))
     processes.append(p)
     p.start()
     
