@@ -92,17 +92,37 @@ class AddNoise(torch.nn.Module):
     def __init__(
         self,
         noise_filename=NOISE_FILENAME,
+        noise_type="white",
         snr_target=None,
     ):
         super().__init__()
         self.snr_levels = [snr_target] if snr_target else [-5, 0, 5, 10, 15, 20, 999999]
+        self.noise_type = noise_type
+        
         self.noise, sample_rate = torchaudio.load(noise_filename)
         assert sample_rate == 16000
+            
+    def generate_pink_noise(self, length):
+        # 简单的粉红噪声生成器，基于numpy
+        uneven = length % 2
+        X = np.random.randn(length // 2 + 1 + uneven) + 1j * np.random.randn(length // 2 + 1 + uneven)
+        S = np.sqrt(np.arange(len(X)) + 1.)  # 避免除以零
+        y = (np.fft.irfft(X / S)).real
+        if uneven:
+            y = y[:-1]
+        return torch.from_numpy(y).float().unsqueeze(0) 
 
     def forward(self, speech):
         # speech: T x 1
         # return: T x 1
         speech = speech.t()
+        if self.noise_type == "pink":
+            print(speech.shape[1])
+            pink_noise = self.generate_pink_noise(speech.shape[1])
+            self.noise = pink_noise
+        elif self.noise_type == "white":
+            self.noise = torch.randn(speech.size())
+            
         start_idx = random.randint(0, self.noise.shape[1] - speech.shape[1])
         noise_segment = self.noise[:, start_idx : start_idx + speech.shape[1]]
         snr_level = torch.tensor([random.choice(self.snr_levels)])
