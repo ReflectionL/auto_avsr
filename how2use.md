@@ -67,6 +67,8 @@ FakeAVCeleb和LAV-DF的label分别保存为
 
 `data/LAV-DF/label.csv`
 
+需要根据自己的文件保存路径对label稍作修改
+
 ## Set
 
 修改`configs/df.yaml`文件，主要是
@@ -86,3 +88,5 @@ video_ckpt_path: /work/lixiaolou/program/auto_avsr/pretrained_model/vsr_trlrwlrs
 Audio的snr 999999为不加噪
 
 Video的0为不加噪
+
+运行结束后，计算auc和画图的地方在`script/calculate_roc_auc_noisy.py`这个文件，主要是几个路径需要改
